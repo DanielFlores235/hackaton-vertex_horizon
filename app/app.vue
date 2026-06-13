@@ -667,6 +667,8 @@ body, html {
   padding: 0;
   overflow: hidden;
   height: 100vh;
+  color: #f8fafc;
+  background-color: #0f172a;
 }
 
 .topo-app {
@@ -677,20 +679,23 @@ body, html {
   background-color: #0f172a;
 }
 
-/* Glassmorphism panel styling */
 .glass-panel {
-  backdrop-filter: blur(16px) saturate(180%);
-  background: var(--panel-bg-dark);
-  border: 1px solid var(--panel-border-dark);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.3);
-  transition: background 0.3s, border-color 0.3s;
+  backdrop-filter: blur(20px) saturate(190%);
+  background: rgba(15, 23, 42, 0.45) !important; /* increased opacity to 45% for readability */
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+
+.glass-panel:hover {
+  box-shadow: 0 8px 36px 0 rgba(139, 92, 246, 0.12), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
 }
 
 /* Light mode overrides */
 .light-mode .glass-panel {
   background: var(--panel-bg-light);
   border-color: var(--panel-border-light);
-  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.07);
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.07), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
 }
 
 .light-mode {
@@ -726,10 +731,14 @@ body, html {
 }
 
 .logo-group h1 {
-  font-size: 1.15rem;
-  font-weight: 800;
+  font-size: 1.25rem;
+  font-weight: 950;
   letter-spacing: -0.5px;
   line-height: 1.2;
+  background: linear-gradient(135deg, #f5f3ff 0%, #c084fc 40%, #60a5fa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 20px rgba(139, 92, 246, 0.12);
 }
 
 .logo-group .sub {
@@ -905,22 +914,62 @@ body, html {
   position: absolute;
   top: 1.5rem;
   bottom: 1.5rem;
-  width: 320px;
+  width: 345px;
   z-index: 999;
   border-radius: 20px;
-  padding: 1.25rem;
-  overflow-y: auto;
-  backdrop-filter: blur(16px) saturate(180%);
-  background: var(--panel-bg-dark);
-  border: 1px solid var(--panel-border-dark);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.3);
-  transition: background 0.3s, border-color 0.3s;
+  padding: 0; /* padding moved to inner body for flex overflow layout */
+  overflow: hidden; /* prevent double scrollbars */
+  backdrop-filter: blur(20px) saturate(190%);
+  background: rgba(15, 23, 42, 0.45) !important; /* increased opacity to 45% */
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45), inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  transition: background 0.3s, border-color 0.3s, box-shadow 0.3s, width 0.3s;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Reposition Leaflet Controls and Wind Rose outside sidebars on desktop */
+@media (min-width: 769px) {
+  .leaflet-top.leaflet-left {
+    left: 375px !important;
+    top: 1.5rem !important;
+  }
+
+  .leaflet-bottom.leaflet-left {
+    left: 375px !important;
+    bottom: 1.5rem !important;
+  }
+
+  .leaflet-bottom.leaflet-right {
+    right: 375px !important;
+    bottom: 1.5rem !important;
+  }
+
+  .wind-rose-container {
+    left: 375px !important;
+    bottom: 3.5rem !important;
+  }
+}
+
+.floating-panel-container::-webkit-scrollbar {
+  width: 5px;
+}
+.floating-panel-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+.floating-panel-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.floating-panel-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.4);
 }
 
 .light-mode .floating-panel-container {
   background: var(--panel-bg-light);
   border-color: var(--panel-border-light);
-  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.07);
+  box-shadow: 0 12px 40px 0 rgba(31, 38, 135, 0.07), inset 0 0 0 1px rgba(255, 255, 255, 0.2);
 }
 
 .left-panel-container {
@@ -1010,5 +1059,255 @@ body, html {
   .header-search {
     max-width: 100%;
   }
+}
+
+/* Custom Sliders UIUX Pro Max */
+.custom-slider {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 5px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12) !important;
+  outline: none;
+  border: none;
+  margin: 0.5rem 0;
+}
+
+.custom-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #ffffff !important;
+  border: 2px solid var(--color-primary);
+  box-shadow: 0 0 10px var(--color-primary);
+  cursor: pointer;
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), background-color 0.2s;
+}
+
+.custom-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.35);
+  background-color: var(--color-primary-hover);
+}
+
+/* UI/UX Pro Max layout, spacing and text overlays */
+.control-group {
+  margin-bottom: 0.75rem;
+}
+
+.control-title-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #c084fc !important;
+  margin-bottom: 0.5rem;
+}
+
+.control-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.slider-helper {
+  display: block;
+  font-size: 0.65rem;
+  color: #94a3b8 !important;
+  margin-top: 0.35rem;
+  line-height: 1.35;
+}
+
+.section-desc {
+  font-size: 0.7rem;
+  color: #94a3b8 !important;
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+/* Clicked Info Box */
+.clicked-info-box {
+  background: rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-radius: 10px !important;
+  padding: 0.75rem !important;
+  margin-top: 0.5rem !important;
+  color: #f8fafc !important;
+}
+
+.coord-tag {
+  font-size: 0.72rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-bottom: 0.6rem;
+  color: #ffffff;
+}
+
+.metric-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.metric-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.metric-col .lbl {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  color: #94a3b8 !important;
+  margin-bottom: 0.2rem;
+}
+
+.metric-col .val {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #ffffff !important;
+}
+
+/* CAD Import buttons styling */
+.button-grid {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.button-grid button,
+.button-grid .p-button {
+  flex: 1;
+  background: rgba(139, 92, 246, 0.15) !important;
+  border: 1px solid rgba(139, 92, 246, 0.3) !important;
+  color: #c084fc !important;
+  padding: 0.5rem 0.25rem !important;
+  border-radius: 8px !important;
+  font-size: 0.7rem !important;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  transition: all 0.2s ease;
+}
+
+.button-grid button:hover,
+.button-grid .p-button:hover {
+  background: rgba(139, 92, 246, 0.25) !important;
+  border-color: rgba(139, 92, 246, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+/* AQI Panel */
+.aqi-section {
+  background: rgba(0, 0, 0, 0.25) !important;
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  border-radius: 10px;
+  padding: 0.75rem;
+  margin-top: 1rem;
+}
+
+.aqi-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 0.5rem;
+}
+
+.aqi-badge {
+  color: #0f172a !important;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.aqi-advice {
+  font-size: 0.68rem;
+  color: #94a3b8 !important;
+  margin: 0;
+  line-height: 1.35;
+}
+
+/* PrimeVue Select override */
+.p-select {
+  width: 100% !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+  height: 38px;
+}
+
+.p-select .p-select-label {
+  color: #ffffff !important;
+  font-size: 0.8rem !important;
+  padding: 0.45rem 0.75rem !important;
+}
+
+.p-select-overlay {
+  background: #0f172a !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.p-select-option {
+  color: #e2e8f0 !important;
+  font-size: 0.75rem !important;
+}
+
+.p-select-option.p-select-option-selected {
+  background: rgba(139, 92, 246, 0.2) !important;
+  color: #c084fc !important;
+}
+
+/* Heatmap and style Floating switch active state */
+.map-style-floating button {
+  color: #cbd5e1 !important;
+}
+
+.map-style-floating button.active {
+  background: var(--color-primary) !important;
+  color: #ffffff !important;
+}
+
+/* Floating Wind Rose lowered opacity to 30% and tactical look */
+.wind-rose-container {
+  background: rgba(15, 23, 42, 0.3) !important; /* forced 30% opacity */
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.rose-point {
+  color: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Executive conclusions text readability */
+.executive-conclusion-box {
+  background: rgba(139, 92, 246, 0.06) !important;
+  border-left-color: #c084fc !important;
+}
+
+.conclusion-desc {
+  color: #ffffff !important;
+}
+
+.pane-desc {
+  color: #e2e8f0 !important;
+}
+
+.pane-list-item {
+  background: rgba(0, 0, 0, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.02) !important;
+  color: #e2e8f0 !important;
 }
 </style>

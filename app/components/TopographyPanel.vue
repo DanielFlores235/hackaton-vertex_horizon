@@ -70,7 +70,7 @@ const riskLevelClass = computed(() => {
 </script>
 
 <template>
-  <aside class="floating-panel right-panel glass-panel">
+  <aside class="floating-panel right-panel">
     <div class="panel-header">
       <i class="pi pi-compass header-icon text-blue"></i>
       <h2>Topografía & CAD</h2>
@@ -116,7 +116,7 @@ const riskLevelClass = computed(() => {
                   <span v-if="loadingElevation" class="pi pi-spin pi-spinner val-loader"></span>
                   <span v-else class="val animate-scale-up">{{ currentElevation !== null ? currentElevation + ' m' : '---' }}</span>
                 </div>
-                <span class="src-info">Vía Open Topo Data</span>
+                <span class="src-info">Lectura Satelital</span>
               </div>
 
               <div class="metric-col">
@@ -125,7 +125,7 @@ const riskLevelClass = computed(() => {
                   <span v-if="loadingElevation" class="pi pi-spin pi-spinner val-loader"></span>
                   <span v-else class="val animate-scale-up">{{ currentSlope !== null ? currentSlope + ' %' : '---' }}</span>
                 </div>
-                <span class="src-info">Calculado con Turf.js</span>
+                <span class="src-info">Estimación Geométrica</span>
               </div>
             </div>
           </div>
@@ -416,13 +416,51 @@ const riskLevelClass = computed(() => {
 
 <style scoped>
 .floating-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   width: 100%;
-  position: relative;
-  box-shadow: none;
-  border: none;
   background: transparent;
+  border: none;
+  box-shadow: none;
   backdrop-filter: none;
-  padding: 0;
+}
+
+.panel-header {
+  padding: 1.25rem 1.25rem 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panel-header h2 {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin: 0;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.75px;
+}
+
+.panel-body {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 0.75rem 1.25rem;
+}
+
+.panel-body::-webkit-scrollbar {
+  width: 4px;
+}
+.panel-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.panel-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.panel-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.4);
 }
 
 /* Tab Navigation Headers */
