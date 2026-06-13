@@ -52,7 +52,7 @@ const handleFileChange = (event: any) => {
 
 // Compute dynamic badge class for regulatory status
 const regulatoryClass = computed(() => {
-  if (!props.agentResponse) return 'badge-cond'
+  if (!props.agentResponse?.viabilidad_normativa?.cumplimiento_reglamentos) return 'badge-cond'
   const rule = props.agentResponse.viabilidad_normativa.cumplimiento_reglamentos.toLowerCase()
   if (rule.includes('aprobado') || rule.includes('aprobada')) return 'badge-ok'
   if (rule.includes('rechazado') || rule.includes('rechazada') || rule.includes('no viable')) return 'badge-danger'
@@ -61,16 +61,137 @@ const regulatoryClass = computed(() => {
 
 // Compute dynamic risk level style
 const riskLevelClass = computed(() => {
-  if (!props.agentResponse) return 'risk-low'
+  if (!props.agentResponse?.riesgos_ambientales?.vulnerabilidad_hidrologica) return 'risk-low'
   const risk = props.agentResponse.riesgos_ambientales.vulnerabilidad_hidrologica.toLowerCase()
   if (risk.includes('alto') || risk.includes('alta') || risk.includes('severo')) return 'risk-high'
   if (risk.includes('moderado') || risk.includes('moderada') || risk.includes('medio')) return 'risk-medium'
   return 'risk-low'
 })
+
+// 1. Displayed slope clamping negative values to 0 %
+const displayedSlope = computed(() => {
+  if (props.currentSlope === null) return '---'
+  const val = props.currentSlope < 0 ? 0 : props.currentSlope
+  return `${val} %`
+})
+
+// 2. Parse Factor of Safety (FS) from calculos_ingenieria
+const parsedFS = computed(() => {
+  if (!props.agentResponse?.cotejo_cad_matematico?.calculos_ingenieria) return null
+  const text = props.agentResponse.cotejo_cad_matematico.calculos_ingenieria
+  const match = text.match(/FS\s*[=:]\s*([0-9.]+)/i)
+  if (match) {
+    const val = parseFloat(match[1])
+    return isNaN(val) ? null : val
+  }
+  return null
+})
+
+// 3. Parse Terzaghi capacity from calculos_ingenieria
+const parsedTerzaghi = computed(() => {
+  if (!props.agentResponse?.cotejo_cad_matematico?.calculos_ingenieria) return null
+  const text = props.agentResponse.cotejo_cad_matematico.calculos_ingenieria
+  const match = text.match(/([0-9.]+)\s*kPa/i)
+  if (match) {
+    const val = parseFloat(match[1])
+    return isNaN(val) ? null : val
+  }
+  return null
+})
+
+// 4. Compute Viabilidad de Obra classes and label
+const viabilidadObraClass = computed(() => {
+  if (!props.agentResponse?.conclusion_para_agente_principal) return ''
+  const conclusion = props.agentResponse.conclusion_para_agente_principal.toLowerCase()
+  if (conclusion.includes('totalmente viable') || conclusion.includes('proyecto viable') || (conclusion.includes('viable') && !conclusion.includes('no viable') && !conclusion.includes('condicionado') && !conclusion.includes('condicionada'))) {
+    return 'viable-ok'
+  }
+  if (conclusion.includes('condicionado') || conclusion.includes('condicionada')) {
+    return 'viable-cond'
+  }
+  if (conclusion.includes('no viable') || conclusion.includes('rechazado') || conclusion.includes('rechazada') || conclusion.includes('peligro extremo')) {
+    return 'viable-danger'
+  }
+  return 'viable-cond' // fallback
+})
+
+const viabilidadObraLabel = computed(() => {
+  const cls = viabilidadObraClass.value
+  if (cls === 'viable-ok') return 'Viable'
+  if (cls === 'viable-cond') return 'Condicionado'
+  if (cls === 'viable-danger') return 'No Viable'
+  return ''
+})
+
+// 5. FS progress bar status classes and tooltips
+const fsStatusLabel = computed(() => {
+  const val = parsedFS.value
+  if (val === null) return ''
+  if (val < 1.0) return 'Inestable'
+  if (val < 1.5) return 'Marginal'
+  return 'Estable'
+})
+
+const fsStatusClass = computed(() => {
+  const val = parsedFS.value
+  if (val === null) return ''
+  if (val < 1.0) return 'text-red-400'
+  if (val < 1.5) return 'text-yellow-400'
+  return 'text-green-400'
+})
+
+const fsBarClass = computed(() => {
+  const val = parsedFS.value
+  if (val === null) return ''
+  if (val < 1.0) return 'bg-red-500'
+  if (val < 1.5) return 'bg-yellow-500'
+  return 'bg-green-500'
+})
+
+const fsTooltipText = computed(() => {
+  const val = parsedFS.value
+  if (val === null) return ''
+  if (val < 1.0) return 'Inestable (Alto riesgo de colapso).'
+  if (val < 1.5) return 'Marginalmente estable (Requiere precauciones).'
+  return 'Estable (Estructura segura).'
+})
+
+// 6. Terzaghi capacity status classes and tooltips
+const terzaghiStatusLabel = computed(() => {
+  const val = parsedTerzaghi.value
+  if (val === null) return ''
+  if (val < 100) return 'Bajo'
+  if (val < 250) return 'Medio'
+  return 'Alto'
+})
+
+const terzaghiStatusClass = computed(() => {
+  const val = parsedTerzaghi.value
+  if (val === null) return ''
+  if (val < 100) return 'text-red-400'
+  if (val < 250) return 'text-yellow-400'
+  return 'text-green-400'
+})
+
+const terzaghiBarClass = computed(() => {
+  const val = parsedTerzaghi.value
+  if (val === null) return ''
+  if (val < 100) return 'bg-red-500'
+  if (val < 250) return 'bg-yellow-500'
+  return 'bg-green-500'
+})
+
+const terzaghiTooltipText = computed(() => {
+  const val = parsedTerzaghi.value
+  if (val === null) return ''
+  if (val < 100) return 'Capacidad baja (Suelo blando o inestable).'
+  if (val < 250) return 'Capacidad media (Suelo estándar para cimentación).'
+  return 'Capacidad alta (Suelo firme o rocoso).'
+})
 </script>
 
 <template>
-  <aside class="floating-panel right-panel glass-panel">
+  <aside class="floating-panel right-panel" style="display: flex; flex-direction: column;">
     <div class="panel-header">
       <i class="pi pi-compass header-icon text-blue"></i>
       <h2>Topografía & CAD</h2>
@@ -94,7 +215,7 @@ const riskLevelClass = computed(() => {
       </button>
     </div>
 
-    <div class="panel-body">
+    <div class="panel-body" style="overflow-y: auto; overflow-x: hidden;">
       
       <!-- TAB 1: TERRENO (Relieve, Mediciones, CAD, Aire) -->
       <div v-if="activeMainTab === 'terreno'" class="tab-pane-container animate-fade-in">
@@ -116,16 +237,16 @@ const riskLevelClass = computed(() => {
                   <span v-if="loadingElevation" class="pi pi-spin pi-spinner val-loader"></span>
                   <span v-else class="val animate-scale-up">{{ currentElevation !== null ? currentElevation + ' m' : '---' }}</span>
                 </div>
-                <span class="src-info">Vía Open Topo Data</span>
+                <span class="src-info">Lectura Satelital</span>
               </div>
 
               <div class="metric-col">
                 <span class="lbl">Pendiente</span>
                 <div class="val-wrapper">
                   <span v-if="loadingElevation" class="pi pi-spin pi-spinner val-loader"></span>
-                  <span v-else class="val animate-scale-up">{{ currentSlope !== null ? currentSlope + ' %' : '---' }}</span>
+                  <span v-else class="val animate-scale-up">{{ displayedSlope }}</span>
                 </div>
-                <span class="src-info">Calculado con Turf.js</span>
+                <span class="src-info">Estimación Geométrica</span>
               </div>
             </div>
           </div>
@@ -153,7 +274,7 @@ const riskLevelClass = computed(() => {
             <div class="metric-row" style="display: flex; justify-content: space-between; gap: 0.5rem; border-top: 1px solid rgba(255, 255, 255, 0.05); padding-top: 0.4rem;">
               <div class="metric-col" style="flex: 1; display: flex; flex-direction: column;">
                 <span class="lbl" style="font-size: 0.65rem; color: var(--text-muted-dark); text-transform: uppercase;">Altitud Media</span>
-                <span class="val" style="font-size: 0.85rem; font-weight: 800; color: var(--text-main-dark);">{{ drawnZoneMetrics.avgElevation !== null ? drawnZoneMetrics.avgElevation + ' m' : '---' }}</span>
+                <span class="val" style="font-size: 0.85rem; font-weight: 800; color: var(--text-main-dark);">{{ drawnZoneMetrics.avgElevation !== null ? drawnZoneMetrics.avgElevation.toLocaleString() + ' m' : '---' }}</span>
               </div>
               <div class="metric-col" style="flex: 1; display: flex; flex-direction: column;">
                 <span class="lbl" style="font-size: 0.65rem; color: var(--text-muted-dark); text-transform: uppercase;">Pendiente Máx</span>
@@ -274,8 +395,14 @@ const riskLevelClass = computed(() => {
               
               <!-- Executive conclusion -->
               <div class="executive-conclusion-box">
-                <span class="conclusion-title"><i class="pi pi-info-circle text-purple-400"></i> Recomendación Principal:</span>
-                <p class="conclusion-desc">{{ agentResponse.conclusion_para_agente_principal }}</p>
+                <div class="conclusion-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                  <span class="conclusion-title"><i class="pi pi-info-circle text-purple-400"></i> Recomendación Principal:</span>
+                  <span v-if="agentResponse?.conclusion_para_agente_principal" class="viabilidad-obra-badge" :class="viabilidadObraClass">
+                    <i class="pi" :class="viabilidadObraClass === 'viable-ok' ? 'pi-check-circle' : viabilidadObraClass === 'viable-cond' ? 'pi-exclamation-circle' : 'pi-times-circle'"></i>
+                    <span>{{ viabilidadObraLabel }}</span>
+                  </span>
+                </div>
+                <p class="conclusion-desc">{{ agentResponse?.conclusion_para_agente_principal }}</p>
               </div>
 
               <!-- Tabs selector -->
@@ -322,11 +449,11 @@ const riskLevelClass = computed(() => {
                 <!-- TOPOGRAPHY TAB -->
                 <div v-if="activeAgentSection === 'topo'" class="agent-tab-pane animate-fade-in">
                   <span class="pane-title"><i class="pi pi-compass pane-icon"></i> Pendientes y Relieve</span>
-                  <p class="pane-desc">{{ agentResponse.analisis_topografico.pendientes_y_curvas }}</p>
+                  <p class="pane-desc">{{ agentResponse?.analisis_topografico?.pendientes_y_curvas }}</p>
                   
                   <span class="pane-title"><i class="pi pi-ban pane-icon text-amber-500"></i> Limitantes Físicas</span>
                   <ul class="pane-list">
-                    <li v-for="(limit, idx) in agentResponse.analisis_topografico.limitantes_fisicas" :key="idx" class="pane-list-item">
+                    <li v-for="(limit, idx) in (agentResponse?.analisis_topografico?.limitantes_fisicas || [])" :key="idx" class="pane-list-item">
                       <i class="pi pi-exclamation-triangle text-amber-500 list-icon"></i>
                       <span>{{ limit }}</span>
                     </li>
@@ -338,12 +465,12 @@ const riskLevelClass = computed(() => {
                   <span class="pane-title"><i class="pi pi-cloud-rain pane-icon"></i> Vulnerabilidad Hidrológica</span>
                   <div class="risk-indicator-badge" :class="riskLevelClass">
                     <i class="pi pi-info-circle"></i>
-                    <span>{{ agentResponse.riesgos_ambientales.vulnerabilidad_hidrologica }}</span>
+                    <span>{{ agentResponse?.riesgos_ambientales?.vulnerabilidad_hidrologica }}</span>
                   </div>
                   
                   <span class="pane-title"><i class="pi pi-shield pane-icon text-emerald-400"></i> Medidas de Mitigación</span>
                   <ul class="pane-list">
-                    <li v-for="(mitig, idx) in agentResponse.riesgos_ambientales.medidas_mitigacion" :key="idx" class="pane-list-item">
+                    <li v-for="(mitig, idx) in (agentResponse?.riesgos_ambientales?.medidas_mitigacion || [])" :key="idx" class="pane-list-item">
                       <i class="pi pi-check-circle text-emerald-400 list-icon"></i>
                       <span>{{ mitig }}</span>
                     </li>
@@ -353,12 +480,12 @@ const riskLevelClass = computed(() => {
                 <!-- NORMATIVE TAB -->
                 <div v-if="activeAgentSection === 'normativa'" class="agent-tab-pane animate-fade-in">
                   <span class="pane-title"><i class="pi pi-folder-open pane-icon"></i> Linderos y Servidumbres</span>
-                  <p class="pane-desc">{{ agentResponse.viabilidad_normativa.restricciones_linderos }}</p>
+                  <p class="pane-desc">{{ agentResponse?.viabilidad_normativa?.restricciones_linderos }}</p>
                   
                   <span class="pane-title"><i class="pi pi-file-edit pane-icon"></i> Reglamentos Municipales</span>
                   <div class="regulatory-badge" :class="regulatoryClass">
                     <i class="pi" :class="regulatoryClass === 'badge-ok' ? 'pi-check-circle' : regulatoryClass === 'badge-danger' ? 'pi-times-circle' : 'pi-exclamation-circle'"></i>
-                    <span>{{ agentResponse.viabilidad_normativa.cumplimiento_reglamentos }}</span>
+                    <span>{{ agentResponse?.viabilidad_normativa?.cumplimiento_reglamentos }}</span>
                   </div>
                 </div>
 
@@ -366,17 +493,17 @@ const riskLevelClass = computed(() => {
                 <div v-if="activeAgentSection === 'termico'" class="agent-tab-pane animate-fade-in">
                   <div class="thermal-card">
                     <span class="pane-title"><i class="pi pi-sun pane-icon text-orange-400"></i> Clima & Estaciones</span>
-                    <p class="pane-desc font-semibold">{{ agentResponse.analisis_termico_clima.comportamiento_temperatura_estaciones }}</p>
+                    <p class="pane-desc font-semibold">{{ agentResponse?.analisis_termico_clima?.comportamiento_temperatura_estaciones }}</p>
                   </div>
                   
                   <div class="thermal-card hvac-integration">
                     <span class="pane-title"><i class="pi pi-cog pane-icon text-sky-400"></i> Integración HVAC</span>
-                    <p class="pane-desc">{{ agentResponse.analisis_termico_clima.necesidades_calefaccion_refrigeracion }}</p>
+                    <p class="pane-desc">{{ agentResponse?.analisis_termico_clima?.necesidades_calefaccion_refrigeracion }}</p>
                   </div>
                   
                   <span class="pane-title"><i class="pi pi-sliders-v pane-icon text-orange-300"></i> Estrategias Pasivas</span>
                   <ul class="pane-list">
-                    <li v-for="(rec, idx) in agentResponse.analisis_termico_clima.recomendaciones_diseno_termico" :key="idx" class="pane-list-item">
+                    <li v-for="(rec, idx) in (agentResponse?.analisis_termico_clima?.recomendaciones_diseno_termico || [])" :key="idx" class="pane-list-item">
                       <i class="pi pi-info-circle text-orange-400 list-icon"></i>
                       <span>{{ rec }}</span>
                     </li>
@@ -386,13 +513,45 @@ const riskLevelClass = computed(() => {
                 <!-- COTEJO CAD TAB -->
                 <div v-if="activeAgentSection === 'cotejo'" class="agent-tab-pane animate-fade-in">
                   <span class="pane-title"><i class="pi pi-shield pane-icon"></i> {{ hasCadOverlay ? 'Cotejo & Apoyos CAD' : 'Estimación de Estructura' }}</span>
-                  <p class="pane-desc">{{ agentResponse.cotejo_cad_matematico.analisis_apoyos_columnas }}</p>
+                  <p class="pane-desc">{{ agentResponse?.cotejo_cad_matematico?.analisis_apoyos_columnas }}</p>
                   
                   <span class="pane-title"><i class="pi pi-calculator pane-icon"></i> Cálculos de Ingeniería</span>
-                  <p class="pane-desc font-mono" style="font-size: 0.68rem; background: rgba(0,0,0,0.35); padding: 0.5rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); white-space: pre-wrap; line-height: 1.35; color: #38bdf8;">{{ agentResponse.cotejo_cad_matematico.calculos_ingenieria }}</p>
+                  <p class="pane-desc font-mono" style="font-size: 0.68rem; background: rgba(0,0,0,0.35); padding: 0.5rem; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); white-space: pre-wrap; line-height: 1.35; color: #38bdf8;">{{ agentResponse?.cotejo_cad_matematico?.calculos_ingenieria }}</p>
                   
+                  <!-- FS Progress Bar -->
+                  <div v-if="parsedFS !== null" class="engineering-scale-wrapper">
+                    <div class="scale-header">
+                      <span class="scale-title">Factor de Seguridad (FS): <strong>{{ parsedFS }}</strong></span>
+                      <span class="scale-status" :class="fsStatusClass">{{ fsStatusLabel }}</span>
+                    </div>
+                    <div class="progress-track">
+                      <div 
+                        class="fs-progress-bar" 
+                        :class="fsBarClass" 
+                        :style="{ width: `${Math.min(100, (parsedFS / 3.0) * 100)}%` }"
+                        :title="`Factor de Seguridad: ${parsedFS}. ${fsTooltipText}`"
+                      ></div>
+                    </div>
+                  </div>
+
+                  <!-- Terzaghi Progress Bar -->
+                  <div v-if="parsedTerzaghi !== null" class="engineering-scale-wrapper">
+                    <div class="scale-header">
+                      <span class="scale-title">Capacidad Terzaghi: <strong>{{ parsedTerzaghi }} kPa</strong></span>
+                      <span class="scale-status" :class="terzaghiStatusClass">{{ terzaghiStatusLabel }}</span>
+                    </div>
+                    <div class="progress-track">
+                      <div 
+                        class="terzaghi-progress-bar" 
+                        :class="terzaghiBarClass" 
+                        :style="{ width: `${Math.min(100, (parsedTerzaghi / 500.0) * 100)}%` }"
+                        :title="`Capacidad Terzaghi: ${parsedTerzaghi} kPa. ${terzaghiTooltipText}`"
+                      ></div>
+                    </div>
+                  </div>
+
                   <span class="pane-title"><i class="pi pi-verified pane-icon"></i> Veredicto Estructural</span>
-                  <div class="regulatory-badge" :class="agentResponse.cotejo_cad_matematico.veredicto_estructural.toLowerCase().includes('aprobado') ? 'badge-ok' : 'badge-danger'">
+                  <div v-if="agentResponse?.cotejo_cad_matematico?.veredicto_estructural" class="regulatory-badge" :class="agentResponse.cotejo_cad_matematico.veredicto_estructural.toLowerCase().includes('aprobado') ? 'badge-ok' : 'badge-danger'">
                     <i class="pi" :class="agentResponse.cotejo_cad_matematico.veredicto_estructural.toLowerCase().includes('aprobado') ? 'pi-check-circle' : 'pi-times-circle'"></i>
                     <span>{{ agentResponse.cotejo_cad_matematico.veredicto_estructural }}</span>
                   </div>
@@ -416,13 +575,129 @@ const riskLevelClass = computed(() => {
 
 <style scoped>
 .floating-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   width: 100%;
-  position: relative;
-  box-shadow: none;
-  border: none;
   background: transparent;
+  border: none;
+  box-shadow: none;
   backdrop-filter: none;
-  padding: 0;
+}
+
+.panel-header {
+  padding: 1.25rem 1.25rem 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panel-header h2 {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin: 0;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.75px;
+}
+
+.panel-body {
+  flex-grow: 1;
+  overflow-y: auto;
+  overflow-x: hidden; /* Fix horizontal overflow tests */
+  padding: 0.75rem 1.25rem;
+}
+
+/* Semáforo Viabilidad de Obra */
+.viabilidad-obra-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 850;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  text-transform: uppercase;
+  letter-spacing: 0.25px;
+}
+.viabilidad-obra-badge.viable-ok {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+  border-color: rgba(16, 185, 129, 0.25);
+}
+.viabilidad-obra-badge.viable-cond {
+  background: rgba(234, 179, 8, 0.12);
+  color: #facc15;
+  border-color: rgba(234, 179, 8, 0.25);
+}
+.viabilidad-obra-badge.viable-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+/* Escalas de Ingeniería / Progress Bars */
+.engineering-scale-wrapper {
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 0.55rem;
+}
+.scale-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.35rem;
+  font-size: 0.7rem;
+}
+.scale-title {
+  color: var(--text-muted-dark);
+}
+.scale-title strong {
+  color: var(--text-main-dark);
+}
+.scale-status {
+  font-weight: 800;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+}
+.progress-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.fs-progress-bar, .terzaghi-progress-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Utility color classes */
+.bg-red-500 { background-color: #ef4444 !important; }
+.bg-yellow-500 { background-color: #eab308 !important; }
+.bg-green-500 { background-color: #10b981 !important; }
+.text-red-400 { color: #f87171 !important; }
+.text-yellow-400 { color: #facc15 !important; }
+.text-green-400 { color: #34d399 !important; }
+
+.panel-body::-webkit-scrollbar {
+  width: 4px;
+}
+.panel-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.panel-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.panel-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.4);
 }
 
 /* Tab Navigation Headers */

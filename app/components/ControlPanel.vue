@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
 const props = defineProps<{
   rainfall: number
@@ -68,7 +68,7 @@ const weatherPresets = [
   {
     name: 'temperate',
     label: 'Templado',
-    icon: 'pi pi-filter-slash',
+    icon: 'pi pi-cloud',
     description: 'Clima primaveral moderado con nubes dispersas',
     rainfall: 15,
     temperature: 22,
@@ -101,189 +101,274 @@ const selectPreset = (preset: any) => {
     emit('update:windDirection', preset.windDirection)
   }
 }
+
+// Active preset computation by checking values
+const activePreset = computed(() => {
+  const match = weatherPresets.find(p => 
+    p.rainfall === props.rainfall && 
+    p.temperature === props.temperature && 
+    p.cloudsVisible === props.cloudsVisible &&
+    (!p.cloudsVisible || (
+      Math.abs(p.cloudCoverage - props.cloudCoverage) < 5 &&
+      Math.abs(p.windSpeed - props.windSpeed) < 5 &&
+      Math.abs(p.windDirection - props.windDirection) < 5
+    ))
+  )
+  return match ? match.name : ''
+})
+
+const showTerrainSection = ref(true)
+const showAtmosphereSection = ref(false)
 </script>
 
 <template>
-  <aside class="floating-panel left-panel glass-panel">
+  <aside class="floating-panel left-panel">
+    <!-- Pinned Header -->
     <div class="panel-header">
       <i class="pi pi-sliders-h header-icon text-purple"></i>
-      <h2>Control de Simulación</h2>
+      <h2>Simulación</h2>
     </div>
 
+    <!-- Scrollable Body Content -->
     <div class="panel-body">
       
-      <!-- Climate Presets Selector Grid -->
-      <div class="control-group">
-        <label class="control-title-label"><i class="pi pi-globe"></i> Preajustes Climáticos</label>
-        <div class="presets-grid">
-          <button 
-            v-for="preset in weatherPresets" 
-            :key="preset.name"
-            class="preset-btn"
-            @click="selectPreset(preset)"
-            :title="preset.description"
-          >
-            <i :class="preset.icon + ' preset-icon'"></i>
-            <span>{{ preset.label }}</span>
-          </button>
-        </div>
-      </div>
-
-      <div class="control-section-divider"></div>
-
-      <!-- Slider Lluvia (Rainfall) -->
-      <div class="control-group">
-        <div class="control-label">
-          <span><i class="pi pi-cloud-rain"></i> Lluvia (Acumulación)</span>
-          <span class="badge badge-blue">{{ rainfall }} mm</span>
-        </div>
-        <input 
-          type="range" 
-          :value="rainfall" 
-          @input="updateRainfall"
-          min="0" 
-          max="100" 
-          class="custom-slider slider-blue"
-        />
-        <span class="slider-helper">Afecta el radio del polígono de inundación (Turf.js).</span>
-      </div>
-
-      <!-- Slider Temperatura (Heatmap) -->
-      <div class="control-group">
-        <div class="control-label">
-          <span><i class="pi pi-sun"></i> Temperatura Suelo</span>
-          <span class="badge badge-orange">{{ temperature }}°C</span>
-        </div>
-        <input 
-          type="range" 
-          :value="temperature" 
-          @input="updateTemperature"
-          min="-10" 
-          max="50" 
-          class="custom-slider slider-orange"
-        />
-        <span class="slider-helper">Ajusta la intensidad calórica del mapa térmico (leaflet.heat).</span>
-      </div>
-
-      <!-- Soil Type Select -->
-      <div class="control-group">
-        <label class="control-title-label">Tipo de Suelo (Filtración)</label>
-        <Select 
-          :modelValue="soilType" 
-          @update:modelValue="handleSoilChange"
-          :options="soilOptions" 
-          optionLabel="name" 
-          placeholder="Selecciona tipo" 
-          class="w-full text-sm font-sans"
-        />
-        <span class="slider-helper">Suelos arenosos absorben más; suelos arcillosos y rocosos inundan rápido.</span>
-      </div>
-
-      <!-- Cloud & Wind Atmospheric Simulation -->
-      <div class="control-section-divider"></div>
-      
-      <div class="control-group">
-        <div class="flex-row-space-between">
-          <span class="control-title-label"><i class="pi pi-cloud"></i> Capa de Nubes</span>
-          <ToggleSwitch 
-            :modelValue="cloudsVisible" 
-            @update:modelValue="(val: boolean) => emit('update:cloudsVisible', val)" 
-          />
-        </div>
-        <span class="slider-helper">Activa una simulación visual y física de nubosidad sobre el terreno.</span>
-      </div>
-
-      <div v-if="cloudsVisible" class="clouds-advanced-controls">
-        <!-- Slider Nubosidad -->
-        <div class="control-group">
-          <div class="control-label">
-            <span>Densidad de Nubes</span>
-            <span class="badge badge-sky">{{ cloudCoverage }}%</span>
+      <!-- ACCORDION SECTION 1: CLIMATE & TERRAIN -->
+      <div class="accordion-item" :class="{ open: showTerrainSection }">
+        <button class="accordion-header" @click="showTerrainSection = !showTerrainSection">
+          <span class="accordion-title"><i class="pi pi-globe text-purple"></i> Clima & Suelo</span>
+          <i class="pi" :class="showTerrainSection ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
+        </button>
+        
+        <div class="accordion-content" v-show="showTerrainSection">
+          <!-- Climate Presets Selector Grid -->
+          <div class="control-group" style="margin-top: 0.5rem;">
+            <label class="control-sub-label">Preajustes Climáticos</label>
+            <div class="presets-grid">
+              <button 
+                v-for="preset in weatherPresets" 
+                :key="preset.name"
+                class="preset-btn"
+                :class="{ active: activePreset === preset.name }"
+                @click="selectPreset(preset)"
+                :title="preset.description"
+              >
+                <i :class="preset.icon + ' preset-icon'"></i>
+                <span>{{ preset.label }}</span>
+              </button>
+            </div>
           </div>
-          <input 
-            type="range" 
-            :value="cloudCoverage" 
-            @input="(e: any) => emit('update:cloudCoverage', parseFloat((e.target as HTMLInputElement).value))"
-            min="10" 
-            max="100" 
-            class="custom-slider slider-sky"
-          />
-        </div>
 
-        <!-- Slider Velocidad Viento -->
-        <div class="control-group">
-          <div class="control-label">
-            <span>Velocidad Viento</span>
-            <span class="badge badge-teal">{{ windSpeed }} km/h</span>
-          </div>
-          <input 
-            type="range" 
-            :value="windSpeed" 
-            @input="(e: any) => emit('update:windSpeed', parseFloat((e.target as HTMLInputElement).value))"
-            min="5" 
-            max="120" 
-            class="custom-slider slider-teal"
-          />
-        </div>
+          <div class="control-section-divider"></div>
 
-        <!-- Slider Dirección Viento -->
-        <div class="control-group">
-          <div class="control-label">
-            <span>Dirección Viento</span>
-            <span class="badge badge-teal">{{ windDirection }}°</span>
+          <!-- Slider Lluvia (Rainfall) -->
+          <div class="control-group">
+            <div class="control-label">
+              <span>🌧️ Lluvia (Acumulación)</span>
+              <span class="badge badge-blue">{{ rainfall }} mm</span>
+            </div>
+            <input 
+              type="range" 
+              :value="rainfall" 
+              @input="updateRainfall"
+              min="0" 
+              max="100" 
+              class="custom-slider slider-blue"
+            />
+            <span class="slider-helper">Afecta la estimación del radio de inundación por lluvia.</span>
           </div>
-          <input 
-            type="range" 
-            :value="windDirection" 
-            @input="(e: any) => emit('update:windDirection', parseFloat((e.target as HTMLInputElement).value))"
-            min="0" 
-            max="359" 
-            class="custom-slider slider-teal"
-          />
-          <div class="wind-dir-labels">
-            <span>N</span>
-            <span>E</span>
-            <span>S</span>
-            <span>O</span>
+
+          <!-- Slider Temperatura (Heatmap) -->
+          <div class="control-group">
+            <div class="control-label">
+              <span>🌡️ Temperatura Suelo</span>
+              <span class="badge badge-orange">{{ temperature }}°C</span>
+            </div>
+            <input 
+              type="range" 
+              :value="temperature" 
+              @input="updateTemperature"
+              min="-10" 
+              max="50" 
+              class="custom-slider slider-orange"
+            />
+            <span class="slider-helper">Modifica la intensidad del mapa de calor térmico.</span>
+          </div>
+
+          <!-- Soil Type Select -->
+          <div class="control-group">
+            <label class="control-sub-label">Tipo de Suelo (Filtración)</label>
+            <Select 
+              :modelValue="soilType" 
+              @update:modelValue="handleSoilChange"
+              :options="soilOptions" 
+              optionLabel="name" 
+              placeholder="Selecciona tipo" 
+              class="w-full text-sm font-sans"
+            />
+            <span class="slider-helper">La arcilla y roca retienen agua; la arena filtra rápido.</span>
           </div>
         </div>
       </div>
 
-      <!-- Simulation triggers -->
-      <div class="control-section-divider"></div>
-      <div class="action-box">
-        <Button 
-          :label="simulationRunning ? 'Pausar Simulación' : 'Simulación Dinámica'" 
-          :icon="simulationRunning ? 'pi pi-pause-circle' : 'pi pi-play-circle'" 
-          :class="simulationRunning ? 'p-button-danger w-full' : 'p-button-primary w-full'"
-          @click="emit('toggleSimulation')"
-        />
+      <!-- ACCORDION SECTION 2: ATMOSPHERIC EFFECTS -->
+      <div class="accordion-item" :class="{ open: showAtmosphereSection }">
+        <button class="accordion-header" @click="showAtmosphereSection = !showAtmosphereSection">
+          <span class="accordion-title"><i class="pi pi-cloud text-sky"></i> Atmósfera & Viento</span>
+          <i class="pi" :class="showAtmosphereSection ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
+        </button>
+        
+        <div class="accordion-content" v-show="showAtmosphereSection">
+          <div class="control-group" style="margin-top: 0.5rem;">
+            <div class="flex-row-space-between">
+              <span class="control-sub-label" style="margin: 0;">Activar Nubosidad</span>
+              <ToggleSwitch 
+                :modelValue="cloudsVisible" 
+                @update:modelValue="(val: boolean) => emit('update:cloudsVisible', val)" 
+              />
+            </div>
+            <span class="slider-helper">Visualiza nubes físicas en movimiento sobre el mapa.</span>
+          </div>
+
+          <div v-if="cloudsVisible" class="clouds-advanced-controls">
+            <!-- Slider Nubosidad -->
+            <div class="control-group">
+              <div class="control-label">
+                <span>Densidad de Nubes</span>
+                <span class="badge badge-sky">{{ cloudCoverage }}%</span>
+              </div>
+              <input 
+                type="range" 
+                :value="cloudCoverage" 
+                @input="(e: any) => emit('update:cloudCoverage', parseFloat((e.target as HTMLInputElement).value))"
+                min="10" 
+                max="100" 
+                class="custom-slider slider-sky"
+              />
+            </div>
+
+            <!-- Slider Velocidad Viento -->
+            <div class="control-group">
+              <div class="control-label">
+                <span>Velocidad Viento</span>
+                <span class="badge badge-teal">{{ windSpeed }} km/h</span>
+              </div>
+              <input 
+                type="range" 
+                :value="windSpeed" 
+                @input="(e: any) => emit('update:windSpeed', parseFloat((e.target as HTMLInputElement).value))"
+                min="5" 
+                max="120" 
+                class="custom-slider slider-teal"
+              />
+            </div>
+
+            <!-- Slider Dirección Viento -->
+            <div class="control-group">
+              <div class="control-label">
+                <span>Dirección Viento</span>
+                <span class="badge badge-teal">{{ windDirection }}°</span>
+              </div>
+              <input 
+                type="range" 
+                :value="windDirection" 
+                @input="(e: any) => emit('update:windDirection', parseFloat((e.target as HTMLInputElement).value))"
+                min="0" 
+                max="359" 
+                class="custom-slider slider-teal"
+              />
+              <div class="wind-dir-labels">
+                <span>N</span>
+                <span>E</span>
+                <span>S</span>
+                <span>O</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
+    </div>
+
+    <!-- Pinned Footer Actions -->
+    <div class="panel-footer">
+      <Button 
+        :label="simulationRunning ? 'Pausar Simulación' : 'Simulación Dinámica'" 
+        :icon="simulationRunning ? 'pi pi-pause-circle' : 'pi pi-play-circle'" 
+        :class="simulationRunning ? 'p-button-danger w-full' : 'p-button-primary w-full'"
+        @click="emit('toggleSimulation')"
+      />
     </div>
   </aside>
 </template>
 
 <style scoped>
-/* Scoped overrides to keep floating panels styles in parent and prevent clashes */
 .floating-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   width: 100%;
-  position: relative;
-  box-shadow: none;
-  border: none;
   background: transparent;
+  border: none;
+  box-shadow: none;
   backdrop-filter: none;
-  padding: 0;
+}
+
+.panel-header {
+  padding: 1.25rem 1.25rem 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.panel-header h2 {
+  font-size: 0.95rem;
+  font-weight: 800;
+  margin: 0;
+  color: #ffffff;
+  text-transform: uppercase;
+  letter-spacing: 0.75px;
+}
+
+.header-icon {
+  font-size: 1.1rem;
+}
+
+.text-purple {
+  color: #c084fc;
+}
+
+.panel-body {
+  flex-grow: 1;
+  overflow-y: auto;
+  padding: 0.75rem 1.25rem;
+}
+
+.panel-body::-webkit-scrollbar {
+  width: 4px;
+}
+.panel-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+.panel-body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+.panel-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.4);
+}
+
+.panel-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.3);
+  backdrop-filter: blur(10px);
 }
 
 .control-section-divider {
   height: 1px;
   background: rgba(255, 255, 255, 0.08);
-  margin: 1.25rem 0;
-}
-
-.light-mode .control-section-divider {
-  background: rgba(0, 0, 0, 0.08);
+  margin: 1rem 0;
 }
 
 .flex-row-space-between {
@@ -328,6 +413,62 @@ const selectPreset = (preset: any) => {
   padding: 0 0.25rem;
 }
 
+/* Accordions styling */
+.accordion-item {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.accordion-item.open {
+  border-color: rgba(139, 92, 246, 0.25);
+  background: rgba(139, 92, 246, 0.02);
+}
+
+.accordion-header {
+  width: 100%;
+  background: transparent;
+  border: none;
+  padding: 0.85rem 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  color: #ffffff;
+  transition: background-color 0.2s;
+}
+
+.accordion-header:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.accordion-title {
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.accordion-content {
+  padding: 0 1rem 1rem 1rem;
+}
+
+.control-sub-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #c084fc;
+  margin-bottom: 0.5rem;
+}
+
 /* Presets styling */
 .presets-grid {
   display: grid;
@@ -355,13 +496,20 @@ const selectPreset = (preset: any) => {
   transform: translateY(-1px);
 }
 
+.preset-btn.active {
+  background: rgba(139, 92, 246, 0.2) !important;
+  border-color: rgba(139, 92, 246, 0.5) !important;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.25);
+}
+
 .preset-btn span {
   font-size: 0.6rem;
   font-weight: 700;
   color: var(--text-muted-dark);
 }
 
-.preset-btn:hover span {
+.preset-btn:hover span,
+.preset-btn.active span {
   color: var(--text-main-dark);
 }
 
@@ -370,8 +518,8 @@ const selectPreset = (preset: any) => {
   color: #c084fc;
 }
 
-.light-mode .preset-btn {
-  background: rgba(0, 0, 0, 0.03);
-  border-color: rgba(0, 0, 0, 0.08);
+.preset-btn.active .preset-icon {
+  color: #ffffff;
+  filter: drop-shadow(0 0 4px #c084fc);
 }
 </style>
