@@ -17,6 +17,7 @@ const props = defineProps<{
   windDirection: number
   activeElevation: number | null
   zoom?: number
+  hasSelectedLocation: boolean
 }>()
 
 const emit = defineEmits<{
@@ -112,6 +113,7 @@ const initMap = () => {
   L.control.zoom({ position: 'bottomright' }).addTo(mapInstance)
 
   updateTileStyle()
+  updateMapInteractions(props.hasSelectedLocation)
 
   // Initialize Geoman
   mapInstance.pm.addControls({
@@ -254,6 +256,25 @@ const initMap = () => {
   dxfLayerGroup = L.layerGroup().addTo(mapInstance)
 }
 
+const updateMapInteractions = (interactive: boolean) => {
+  if (!mapInstance) return
+  if (interactive) {
+    mapInstance.dragging.enable()
+    mapInstance.scrollWheelZoom.enable()
+    mapInstance.doubleClickZoom.enable()
+    mapInstance.boxZoom.enable()
+    mapInstance.keyboard.enable()
+    if (mapInstance.touchZoom) mapInstance.touchZoom.enable()
+  } else {
+    mapInstance.dragging.disable()
+    mapInstance.scrollWheelZoom.disable()
+    mapInstance.doubleClickZoom.disable()
+    mapInstance.boxZoom.disable()
+    mapInstance.keyboard.disable()
+    if (mapInstance.touchZoom) mapInstance.touchZoom.disable()
+  }
+}
+
 const updateTileStyle = () => {
   if (!mapInstance || !L) return
 
@@ -263,13 +284,22 @@ const updateTileStyle = () => {
 
   let url = ''
   let attr = ''
+  let maxZoom = 19
 
   if (props.tileStyle === 'standard') {
     url = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
     attr = '© OpenStreetMap'
-  } else if (props.tileStyle === 'dark') {
-    url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
-    attr = '© OpenStreetMap, © CartoDB'
+  } else if (props.tileStyle === 'topografica') {
+    const apikey = '<your apikey>'
+    if (apikey === '<your apikey>' || !apikey) {
+      url = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png'
+      attr = '© OpenTopoMap contributors, © OpenStreetMap'
+      maxZoom = 17
+    } else {
+      url = `https://api.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey=${apikey}`
+      attr = '© Thunderforest, © OpenStreetMap contributors'
+      maxZoom = 22
+    }
   } else if (props.tileStyle === 'satellite') {
     url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
     attr = '© ESRI Satellite, USGS'
@@ -277,7 +307,7 @@ const updateTileStyle = () => {
 
   tileLayer = L.tileLayer(url, {
     attribution: attr,
-    maxZoom: 19
+    maxZoom: maxZoom
   }).addTo(mapInstance)
 }
 
@@ -461,6 +491,10 @@ const stopAnimation = () => {
 }
 
 // Watchers
+watch(() => props.hasSelectedLocation, (newVal) => {
+  updateMapInteractions(newVal)
+})
+
 watch(() => props.center, (newCenter) => {
   if (mapInstance) {
     mapInstance.setView(newCenter, props.zoom !== undefined ? props.zoom : 14)
@@ -508,7 +542,7 @@ defineExpose({
 </script>
 
 <template>
-  <div class="map-wrapper">
+  <div class="map-wrapper" :class="{ 'map-inactive': !hasSelectedLocation }">
     <div ref="mapElement" class="topo-map"></div>
     <canvas 
       v-if="cloudsVisible" 
@@ -713,5 +747,17 @@ defineExpose({
   font-size: 1.15rem;
   color: #38bdf8;
   filter: drop-shadow(0 0 5px rgba(56, 189, 248, 0.6));
+}
+
+.map-inactive :deep(.leaflet-control) {
+  display: none !important;
+}
+
+.map-inactive .wind-rose-container {
+  display: none !important;
+}
+
+.map-inactive :deep(.leaflet-grab) {
+  cursor: default !important;
 }
 </style>

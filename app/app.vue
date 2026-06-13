@@ -684,6 +684,11 @@ const loadMockCadBlueprint = () => {
     detail: 'Estructuras de cimentación y cotas de terreno cargadas con éxito.',
     life: 3000
   })
+
+  // Automatically trigger agent analysis to run the CAD matching evaluation
+  if (lastClickedCoords.value || drawnZoneMetrics.value) {
+    runAgentAnalysis()
+  }
 }
 
 // Parse real DXF file contents
@@ -752,6 +757,10 @@ const handleDxfTextParsed = (dxfText: string) => {
       life: 4000
     })
 
+    // Automatically trigger agent analysis to run the CAD matching evaluation
+    if (lastClickedCoords.value || drawnZoneMetrics.value) {
+      runAgentAnalysis()
+    }
   } catch (err) {
     toast.add({
       severity: 'error',
@@ -773,6 +782,11 @@ const clearCadOverlay = () => {
     detail: 'Se quitaron todas las sobrecapas vectoriales.',
     life: 2000
   })
+
+  // Automatically trigger agent analysis to clear the CAD matching evaluation
+  if (lastClickedCoords.value || drawnZoneMetrics.value) {
+    runAgentAnalysis()
+  }
 }
 
 const toggleDarkMode = () => {
@@ -792,9 +806,8 @@ const toggleDarkMode = () => {
     <!-- Navbar Header -->
     <header class="topo-header glass-panel">
       <div class="header-left">
-        <i class="pi pi-globe logo-icon"></i>
+        <img src="./components/assets/vertex-horizon.svg" alt="Vertex Horizon" class="logo-image" />
         <div class="logo-group">
-          <h1>Vertex Horizon</h1>
           <span class="sub">Visor Topográfico 2D & Simulador</span>
         </div>
       </div>
@@ -854,12 +867,13 @@ const toggleDarkMode = () => {
           :windSpeed="windSpeed"
           :windDirection="windDirection"
           :activeElevation="currentElevation !== null ? currentElevation : (drawnZoneMetrics ? drawnZoneMetrics.avgElevation : null)"
+          :hasSelectedLocation="hasSelectedLocation"
           @mapClick="handleMapClick"
           @drawnPolygon="handleDrawnPolygon"
         />
         
         <!-- Tile Switcher controls -->
-        <div class="map-style-floating glass-panel">
+        <div v-if="hasSelectedLocation" class="map-style-floating glass-panel">
           <button 
             :class="{ active: activeTileStyle === 'satellite' }" 
             @click="activeTileStyle = 'satellite'"
@@ -877,12 +891,12 @@ const toggleDarkMode = () => {
             <span>Plano</span>
           </button>
           <button 
-            :class="{ active: activeTileStyle === 'dark' }" 
-            @click="activeTileStyle = 'dark'"
-            title="Híbrido Oscuro"
+            :class="{ active: activeTileStyle === 'topografica' }" 
+            @click="activeTileStyle = 'topografica'"
+            title="Topográfica"
           >
-            <i class="pi pi-moon"></i>
-            <span>Oscuro</span>
+            <i class="pi pi-map"></i>
+            <span>Topográfica</span>
           </button>
         </div>
       </div>
@@ -890,8 +904,7 @@ const toggleDarkMode = () => {
       <!-- Welcome Overlay -->
       <div v-if="!hasSelectedLocation" class="welcome-overlay glass-panel">
         <div class="welcome-content">
-          <i class="pi pi-globe welcome-logo-icon"></i>
-          <h2>Vertex Horizon</h2>
+          <img src="./components/assets/vertex-horizon.svg" alt="Vertex Horizon" class="welcome-logo-image" />
           <p>Busca una ubicación en la barra superior o haz clic en el mapa para comenzar el análisis.</p>
           <div class="welcome-arrow">
             <i class="pi pi-arrow-up"></i>
@@ -1669,5 +1682,19 @@ body, html {
 @keyframes bounce-up-down {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
+}
+
+.logo-image {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  margin-right: 0.25rem;
+}
+
+.welcome-logo-image {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  margin-bottom: 0.5rem;
 }
 </style>

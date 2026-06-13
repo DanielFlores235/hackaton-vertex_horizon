@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-
+//Hola
 const props = defineProps<{
   rainfall: number
   temperature: number
