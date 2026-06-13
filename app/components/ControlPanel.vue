@@ -38,6 +38,69 @@ const updateTemperature = (e: Event) => {
 const handleSoilChange = (val: any) => {
   emit('update:soilType', val)
 }
+
+// Weather/Climate presets definition
+const weatherPresets = [
+  {
+    name: 'desert',
+    label: 'Desierto',
+    icon: 'pi pi-sun',
+    description: 'Calor extremo, sin lluvia y cielo despejado',
+    rainfall: 0,
+    temperature: 42,
+    cloudsVisible: false,
+    cloudCoverage: 10,
+    windSpeed: 12,
+    windDirection: 90
+  },
+  {
+    name: 'storm',
+    label: 'Tormenta',
+    icon: 'pi pi-cloud-download',
+    description: 'Lluvia intensa con alta densidad de nubes y fuertes vientos',
+    rainfall: 80,
+    temperature: 14,
+    cloudsVisible: true,
+    cloudCoverage: 90,
+    windSpeed: 75,
+    windDirection: 220
+  },
+  {
+    name: 'temperate',
+    label: 'Templado',
+    icon: 'pi pi-filter-slash',
+    description: 'Clima primaveral moderado con nubes dispersas',
+    rainfall: 15,
+    temperature: 22,
+    cloudsVisible: true,
+    cloudCoverage: 30,
+    windSpeed: 18,
+    windDirection: 45
+  },
+  {
+    name: 'glacial',
+    label: 'Glacial',
+    icon: 'pi pi-snowflake',
+    description: 'Frío bajo cero, viento fuerte y nubosidad espesa',
+    rainfall: 40,
+    temperature: -5,
+    cloudsVisible: true,
+    cloudCoverage: 75,
+    windSpeed: 40,
+    windDirection: 315
+  }
+]
+
+const selectPreset = (preset: any) => {
+  emit('update:rainfall', preset.rainfall)
+  emit('update:temperature', preset.temperature)
+  emit('update:cloudsVisible', preset.cloudsVisible)
+  if (preset.cloudsVisible) {
+    emit('update:cloudCoverage', preset.cloudCoverage)
+    emit('update:windSpeed', preset.windSpeed)
+    emit('update:windDirection', preset.windDirection)
+  }
+}
 </script>
 
 <template>
@@ -49,6 +112,25 @@ const handleSoilChange = (val: any) => {
 
     <div class="panel-body">
       
+      <!-- Climate Presets Selector Grid -->
+      <div class="control-group">
+        <label class="control-title-label"><i class="pi pi-globe"></i> Preajustes Climáticos</label>
+        <div class="presets-grid">
+          <button 
+            v-for="preset in weatherPresets" 
+            :key="preset.name"
+            class="preset-btn"
+            @click="selectPreset(preset)"
+            :title="preset.description"
+          >
+            <i :class="preset.icon + ' preset-icon'"></i>
+            <span>{{ preset.label }}</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="control-section-divider"></div>
+
       <!-- Slider Lluvia (Rainfall) -->
       <div class="control-group">
         <div class="control-label">
@@ -245,5 +327,51 @@ const handleSoilChange = (val: any) => {
   margin-top: 0.25rem;
   padding: 0 0.25rem;
 }
-</style>
 
+/* Presets styling */
+.presets-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.preset-btn {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.5rem 0.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preset-btn:hover {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.25);
+  transform: translateY(-1px);
+}
+
+.preset-btn span {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: var(--text-muted-dark);
+}
+
+.preset-btn:hover span {
+  color: var(--text-main-dark);
+}
+
+.preset-icon {
+  font-size: 0.85rem;
+  color: #c084fc;
+}
+
+.light-mode .preset-btn {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.08);
+}
+</style>

@@ -45,6 +45,12 @@ const cadData = ref<any[]>([])
 const topoMapRef = ref<any>(null)
 const toast = useToast()
 
+// Topo-Agent Integration State
+const loadingAgent = ref(false)
+const agentResponse = ref<any | null>(null)
+const drawnZoneMetrics = ref<any | null>(null)
+const activeMainTab = ref<'terreno' | 'agente'>('terreno')
+
 const aqiStatus = computed(() => {
   if (aqiValue.value <= 50) return { label: 'Excelente', color: '#10b981', class: 'aqi-good' }
   if (aqiValue.value <= 100) return { label: 'Moderado', color: '#eab308', class: 'aqi-moderate' }
@@ -143,6 +149,9 @@ const handleMapClick = async (lat: number, lng: number) => {
   loadingElevation.value = true
   currentElevation.value = null
   currentSlope.value = null
+  agentResponse.value = null
+  drawnZoneMetrics.value = null
+  activeMainTab.value = 'terreno'
 
   try {
     const res = await fetch(`https://api.opentopodata.org/v1/srtm30m?locations=${lat},${lng}`)
@@ -167,6 +176,98 @@ const handleMapClick = async (lat: number, lng: number) => {
   currentSlope.value = Math.min(Math.round((diff / distance) * 100), 48)
 
   fetchAQI(lat, lng)
+
+  // Auto-switch to Agent tab and trigger analysis automatically
+  activeMainTab.value = 'agente'
+  runAgentAnalysis()
+}
+
+const handleDrawnPolygon = (metrics: any) => {
+  drawnZoneMetrics.value = metrics
+  activeMainTab.value = 'agente' // Auto-switch to Agent tab on polygon draw
+  toast.add({
+    severity: 'info',
+    summary: 'Zona Mapeada',
+    detail: `Área: ${Math.round(metrics.area).toLocaleString()} m² | Altitud Media: ${metrics.avgElevation || '---'}m. ¡Generando análisis automático!`,
+    life: 4000
+  })
+  
+  // Trigger agent analysis automatically
+  runAgentAnalysis()
+}
+
+const runAgentAnalysis = async () => {
+  if (!lastClickedCoords.value && !drawnZoneMetrics.value) return
+  loadingAgent.value = true
+  agentResponse.value = null
+
+  const hasPolygon = drawnZoneMetrics.value !== null
+  const coordsStr = hasPolygon
+    ? "Polígono de área seleccionada y medida"
+    : (lastClickedCoords.value ? `${lastClickedCoords.value[0].toFixed(5)}° N, ${lastClickedCoords.value[1].toFixed(5)}° W` : "Ubicación genérica")
+    
+  const descStr = hasPolygon
+    ? `Terreno medido de área ${Math.round(drawnZoneMetrics.value.area).toLocaleString()} m² con perímetro de ${Math.round(drawnZoneMetrics.value.perimeter).toLocaleString()} metros. Su altitud promedio es de ${drawnZoneMetrics.value.avgElevation} metros (Rango: ${drawnZoneMetrics.value.minElevation}m - ${drawnZoneMetrics.value.maxElevation}m). Tiene una pendiente máxima registrada del ${drawnZoneMetrics.value.maxSlope}% y pendiente promedio del ${drawnZoneMetrics.value.avgSlope}%. Suelo clasificado como: ${soilType.value.name}, temperatura: ${temperature.value}°C.`
+    : `Altitud real de ${currentElevation.value || 'desconocida'} metros, pendiente aproximada de ${currentSlope.value || 0}%, temperatura de suelo ${temperature.value}°C con tipo de suelo ${soilType.value.name}.`
+
+  // Format AutoCAD DXF/planos_2d details to include specific columns coordinates and counts
+  let planosDescription = 'No se ha proporcionado plano de AutoCAD (es opcional). Por lo tanto, realiza la estimación estructural y cálculos de cimentación (capacidad de carga Terzaghi, estabilidad de taludes FS) para una residencia estándar unifamiliar típica de 2 niveles (~150 m²) construida sobre este terreno.'
+  if (hasPolygon) {
+    planosDescription = `No se ha proporcionado plano de AutoCAD (es opcional). Realizar la estimación y cálculos estructurales (capacidad de carga Terzaghi, estabilidad de taludes FS) para una residencia estándar unifamiliar típica de 2 niveles (~150 m²) adaptada a este terreno de ${Math.round(drawnZoneMetrics.value.area).toLocaleString()} m².`
+  }
+  if (hasCadOverlay.value && cadData.value) {
+    const linesCount = cadData.value.filter(e => e.type === 'line').length
+    const polylinesCount = cadData.value.filter(e => e.type === 'polyline').length
+    const circlesCount = cadData.value.filter(e => e.type === 'circle').length
+    
+    planosDescription = `Planos de cimentación AutoCAD cargados con ${cadData.value.length} elementos vectoriales. Contiene: ${linesCount} líneas estructurales de muros, ${polylinesCount} polígonos de delimitación y curvas de nivel, y ${circlesCount} círculos de cimentación/columnas de carga.`
+    
+    const columnCoords = cadData.value
+      .filter(e => e.type === 'circle')
+      .map((c, i) => `Columna C-${i+1} en coord: [${c.coords[0].toFixed(5)}, ${c.coords[1].toFixed(5)}]`)
+      .join(', ')
+    if (columnCoords) {
+      planosDescription += ` Las coordenadas de las columnas de soporte son: ${columnCoords}.`
+    }
+    planosDescription += ' Utiliza estos planos de AutoCAD como referencia directa para evaluar detalladamente si es viable construir la cimentación indicada (con sus respectivas columnas y linderos) en este terreno y sus pendientes específicas.'
+  }
+
+  try {
+    const response = await $fetch<any>('https://mr3miliano.app.n8n.cloud/webhook/topo-agent', {
+      method: 'POST',
+      headers: {
+        'X-API-KEY': 'topo-secret-api-key-2026-vbc',
+        'Content-Type': 'application/json'
+      },
+      body: {
+        sessionId: `session-${Date.now()}`,
+        coordenadas: coordsStr,
+        descripcion_terreno: descStr,
+        planos_2d: planosDescription
+      }
+    })
+
+    if (response && response.success && response.agent_response) {
+      agentResponse.value = response.agent_response
+      toast.add({
+        severity: 'success',
+        summary: 'Análisis IA Completo',
+        detail: 'Topo-Agent generó las recomendaciones del terreno con éxito.',
+        life: 3000
+      })
+    } else {
+      throw new Error('Formato de respuesta inválido')
+    }
+  } catch (err) {
+    toast.add({
+      severity: 'error',
+      summary: 'Error del Agente',
+      detail: 'No se pudo obtener el análisis. Revisa la conexión con n8n.',
+      life: 4000
+    })
+  } finally {
+    loadingAgent.value = false
+  }
 }
 
 // Dynamic simulation triggers
@@ -462,7 +563,9 @@ const toggleDarkMode = () => {
           :cloudCoverage="cloudCoverage"
           :windSpeed="windSpeed"
           :windDirection="windDirection"
+          :activeElevation="currentElevation !== null ? currentElevation : (drawnZoneMetrics ? drawnZoneMetrics.avgElevation : null)"
           @mapClick="handleMapClick"
+          @drawnPolygon="handleDrawnPolygon"
         />
         
         <!-- Tile Switcher controls -->
@@ -521,9 +624,14 @@ const toggleDarkMode = () => {
           :aqiStatus="aqiStatus"
           :loadedDxfEntitiesCount="loadedDxfEntitiesCount"
           :hasCadOverlay="hasCadOverlay"
+          :loadingAgent="loadingAgent"
+          :agentResponse="agentResponse"
+          :drawnZoneMetrics="drawnZoneMetrics"
+          v-model:activeTab="activeMainTab"
           @dxfParsedText="handleDxfTextParsed"
           @mockCadClick="loadMockCadBlueprint"
           @clearCadClick="clearCadOverlay"
+          @runAgentAnalysis="runAgentAnalysis"
         />
       </div>
 
@@ -537,8 +645,8 @@ const toggleDarkMode = () => {
   --nav-height: 70px;
   --font-family: 'Plus Jakarta Sans', sans-serif;
   
-  --panel-bg-light: rgba(255, 255, 255, 0.78);
-  --panel-bg-dark: rgba(15, 23, 42, 0.75);
+  --panel-bg-light: rgba(255, 255, 255, 0.3);
+  --panel-bg-dark: rgba(15, 23, 42, 0.3);
   
   --panel-border-light: rgba(226, 232, 240, 0.9);
   --panel-border-dark: rgba(255, 255, 255, 0.08);
