@@ -43,16 +43,28 @@ const resolveGoogleMapsUrl = async (query: string): Promise<[number, number] | n
 
   if (query.includes('maps.app.goo.gl') || query.includes('goo.gl/maps')) {
     try {
-      const res = await $fetch<any>('http://localhost:4000/api/resolve-redirect', {
-        method: 'POST',
-        body: { url: query }
-      })
+      let res;
+      try {
+        res = await $fetch<any>('/api/resolve-redirect', {
+          method: 'POST',
+          body: { url: query }
+        })
+      } catch (proxyErr: any) {
+        console.warn("Fallo al resolver link corto a través del proxy local de Nuxt, intentando resolución directa:", proxyErr.message)
+        const response = await fetch(query, { method: 'HEAD', redirect: 'manual' })
+        const location = response.headers.get('location')
+        if (location) {
+          res = { success: true, redirectUrl: location }
+        } else {
+          throw new Error('No location header returned')
+        }
+      }
       if (res && res.success && res.redirectUrl) {
         const coords = extractCoordsFromGoogleMapsUrl(res.redirectUrl)
         if (coords) return coords as [number, number]
       }
     } catch (err) {
-      console.warn("Fallo al resolver link corto a través del backend local:", err)
+      console.warn("Fallo al resolver link corto a través del resolvedor de redirecciones:", err)
     }
   }
   return null
@@ -447,19 +459,65 @@ const runAgentAnalysis = async () => {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-      const response = await $fetch<any>('http://localhost:4000/api/topo-agent', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: {
-          sessionId: `session-${Date.now()}`,
-          coordenadas: coordsStr,
-          descripcion_terreno: descStr,
-          planos_2d: planosDescription
-        },
-        signal: controller.signal
-      })
+      let response;
+      try {
+        response = await $fetch<any>('/api/topo-agent', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: {
+            sessionId: `session-${Date.now()}`,
+            coordenadas: coordsStr,
+            descripcion_terreno: descStr,
+            planos_2d: planosDescription
+          },
+          signal: controller.signal
+        })
+      } catch (proxyErr: any) {
+        console.warn(`[Proxy Fallback] El proxy local falló, intentando llamar a n8n directamente:`, proxyErr.message)
+        
+        // Sequentially try test and production webhooks directly from client side
+        const directUrls = [
+          'https://mr3miliano.app.n8n.cloud/webhook-test/topo-agent',
+          'https://mr3miliano.app.n8n.cloud/webhook/topo-agent'
+        ]
+        
+        let directSuccess = false
+        for (const url of directUrls) {
+          try {
+            console.log(`[Direct Fallback] Intentando llamar directamente a: ${url}`)
+            const directRes = await $fetch<any>(url, {
+              method: 'POST',
+              headers: {
+                'X-API-KEY': 'topo-secret-api-key-2026-vbc',
+                'Content-Type': 'application/json'
+              },
+              body: {
+                sessionId: `session-${Date.now()}`,
+                coordenadas: coordsStr,
+                descripcion_terreno: descStr,
+                planos_2d: planosDescription
+              },
+              signal: controller.signal
+            })
+            
+            if (directRes && directRes.success && directRes.agent_response) {
+              response = directRes
+              directSuccess = true
+              break
+            } else {
+              throw new Error('Respuesta inválida de n8n directo')
+            }
+          } catch (directErr: any) {
+            console.warn(`[Direct Fallback] Falló llamada a ${url}:`, directErr.message)
+          }
+        }
+        
+        if (!directSuccess) {
+          throw new Error('Todos los webhooks directos y el proxy local fallaron.')
+        }
+      }
       
       clearTimeout(timeoutId)
 
