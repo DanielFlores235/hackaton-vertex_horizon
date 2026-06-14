@@ -17,8 +17,8 @@ export default defineEventHandler(async (event) => {
       console.log(`[Nitro Proxy] Intentando enviar a: ${url}`)
       
       const controller = new AbortController()
-      // 15 seconds timeout to prevent hanging if a webhook is frozen
-      const timeoutId = setTimeout(() => controller.abort(), 15000)
+      // 90 seconds timeout to prevent hanging if a webhook is frozen
+      const timeoutId = setTimeout(() => controller.abort(), 90000)
 
       const response = await fetch(url, {
         method: 'POST',

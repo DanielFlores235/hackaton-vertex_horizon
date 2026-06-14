@@ -457,7 +457,7 @@ const runAgentAnalysis = async () => {
       agentProgressMessage.value = `Conectando con agente IA... (Intento ${attempt}/${maxAttempts})`
       
       const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 15000)
+      const timeoutId = setTimeout(() => controller.abort(), 90000)
 
       let response;
       try {
@@ -502,8 +502,16 @@ const runAgentAnalysis = async () => {
               signal: controller.signal
             })
             
-            if (directRes && directRes.success && directRes.agent_response) {
-              response = directRes
+            // Lenient extraction for direct calls
+            let directExtracted = null
+            if (directRes) {
+              if (directRes.agent_response) directExtracted = directRes.agent_response
+              else if (directRes.conclusion_para_agente_principal) directExtracted = directRes
+              else if (directRes.success && directRes.data && directRes.data.conclusion_para_agente_principal) directExtracted = directRes.data
+            }
+            
+            if (directExtracted && directExtracted.conclusion_para_agente_principal) {
+              response = { success: true, agent_response: directExtracted }
               directSuccess = true
               break
             } else {
@@ -521,8 +529,20 @@ const runAgentAnalysis = async () => {
       
       clearTimeout(timeoutId)
 
-      if (response && response.success && response.agent_response) {
-        agentResponse.value = response.agent_response
+      // Lenient validation for final response
+      let extractedAgent = null
+      if (response) {
+        if (response.agent_response) {
+          extractedAgent = response.agent_response
+        } else if (response.conclusion_para_agente_principal) {
+          extractedAgent = response
+        } else if (response.success && response.data && response.data.conclusion_para_agente_principal) {
+          extractedAgent = response.data
+        }
+      }
+
+      if (extractedAgent && extractedAgent.conclusion_para_agente_principal) {
+        agentResponse.value = extractedAgent
         success = true
         toast.add({
           severity: 'success',
@@ -531,14 +551,14 @@ const runAgentAnalysis = async () => {
           life: 3000
         })
       } else {
-        throw new Error('Formato de respuesta de n8n inválido')
+        throw new Error('Formato de respuesta de n8n inválido (falta conclusion_para_agente_principal)')
       }
     } catch (err: any) {
       console.warn(`Intento ${attempt} fallido:`, err)
       const isAbort = err.name === 'AbortError' || err.message?.toLowerCase().includes('abort') || err.message?.toLowerCase().includes('timeout')
       
       if (isAbort) {
-        errorMsg = 'Timeout (15s superados)'
+        errorMsg = 'Timeout (90s superados)'
       } else if (err.message?.includes('404') || err.message?.includes('500') || err.message?.includes('Failed to fetch') || err.message?.includes('CORS')) {
         errorMsg = `Error de red / CORS / Webhook inactivo (${err.message})`
       } else {
