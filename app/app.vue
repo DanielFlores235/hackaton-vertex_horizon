@@ -477,7 +477,12 @@ const runAgentAnalysis = async () => {
       } catch (proxyErr: any) {
         console.warn(`[Proxy Fallback] El proxy local falló, intentando llamar a n8n directamente:`, proxyErr.message)
         
-        // Sequentially try test and production webhooks directly from client side
+        toast.add({
+          severity: 'warn',
+          summary: 'Servidor Dev desactualizado',
+          detail: 'Por favor, detén y reinicia tu consola con bun run dev para activar los nuevos proxies de red.',
+          life: 8000
+        })
         const directUrls = [
           'https://mr3miliano.app.n8n.cloud/webhook-test/topo-agent',
           'https://mr3miliano.app.n8n.cloud/webhook/topo-agent'
