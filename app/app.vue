@@ -447,10 +447,9 @@ const runAgentAnalysis = async () => {
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-      const response = await $fetch<any>('https://mr3miliano.app.n8n.cloud/webhook/topo-agent', {
+      const response = await $fetch<any>('http://localhost:4000/api/topo-agent', {
         method: 'POST',
         headers: {
-          'X-API-KEY': 'topo-secret-api-key-2026-vbc',
           'Content-Type': 'application/json'
         },
         body: {

@@ -376,6 +376,52 @@ app.post('/api/resolve-redirect', async (req, res) => {
   }
 });
 
+/**
+ * 4. POST /api/topo-agent
+ * Server-to-server proxy to bypass CORS restrictions.
+ * Automatically attempts to contact both production and test n8n webhooks.
+ */
+app.post('/api/topo-agent', async (req, res) => {
+  const urls = [
+    'https://mr3miliano.app.n8n.cloud/webhook/topo-agent',
+    'https://mr3miliano.app.n8n.cloud/webhook-test/topo-agent'
+  ];
+
+  let lastError = null;
+
+  for (const url of urls) {
+    try {
+      console.log(`[Proxy n8n] Intentando enviar a: ${url}`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'X-API-KEY': 'topo-secret-api-key-2026-vbc',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(req.body)
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[Proxy n8n] Respuesta exitosa de: ${url}`);
+        return res.json(data);
+      } else {
+        const text = await response.text();
+        console.warn(`[Proxy n8n] Error de respuesta de ${url} (Status ${response.status}):`, text);
+        lastError = new Error(`Status ${response.status}: ${text}`);
+      }
+    } catch (err) {
+      console.error(`[Proxy n8n] Error al conectar con ${url}:`, err.message);
+      lastError = err;
+    }
+  }
+
+  res.status(502).json({
+    success: false,
+    error: `No se pudo conectar con los webhooks de n8n. Último error: ${lastError ? lastError.message : 'Desconocido'}`
+  });
+});
+
 // Start listening
 app.listen(port, () => {
   console.log(`[Topografía-Backend] Servidor activo escuchando en el puerto ${port}`);
